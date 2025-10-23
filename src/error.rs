@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 /// The primary error type for the `tabulon` crate.
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum JitError {
     /// An error occurred while parsing the expression string.
     #[error("parse error: {0}")]
