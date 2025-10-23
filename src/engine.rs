@@ -41,6 +41,14 @@ pub enum VarAccessStrategy {
     ResolverCall { symbol: &'static str },
 }
 
+pub trait CtxFamily {
+    type Ctx<'a>;
+}
+
+impl CtxFamily for () {
+    type Ctx<'a> = ();
+}
+
 /// The main JIT compilation and evaluation engine.
 ///
 /// `Tabula` is the entry point for parsing, compiling, and evaluating expressions.
@@ -59,7 +67,7 @@ pub enum VarAccessStrategy {
 /// let result = expr.eval(&[10.0, 20.0]).unwrap();
 /// assert_eq!(result, 30.0);
 /// ```
-pub struct Tabula<Ctx = ()> {
+pub struct Tabula<Ctx: CtxFamily = ()> {
     pub(crate) _phantom_ctx: std::marker::PhantomData<Ctx>,
     pub(crate) funcs: HashMap<(String, u8), RegisteredFn>,
     pub(crate) module: Option<JITModule>,
@@ -126,7 +134,7 @@ fn ast_uses_ctx(ast: &Ast, funcs: &HashMap<(String, u8), RegisteredFn>) -> bool 
     }
 }
 
-impl<Ctx> Tabula<Ctx> {
+impl<Ctx: CtxFamily> Tabula<Ctx> {
     /// Set the variable getter symbol/function for ResolverCall strategy.
     pub fn set_var_getter(&mut self, symbol: &'static str, f: GetVarFn) -> Result<(), JitError> {
         if self.module.is_some() {
@@ -680,7 +688,7 @@ impl<Ctx> Tabula<Ctx> {
 /// Created by [`Tabula::compile`].
 /// Evaluation requires passing a slice of `f64` values.
 #[derive(Debug, Clone)]
-pub struct CompiledExpr<K = String, Ctx = ()> {
+pub struct CompiledExpr<K = String, Ctx: CtxFamily = ()> {
     pub(crate) func_ptr: JitFn,
     pub(crate) ordered_vars: Vec<K>,
     pub(crate) gen_token: Arc<AtomicUsize>,
@@ -690,7 +698,7 @@ pub struct CompiledExpr<K = String, Ctx = ()> {
     pub(crate) _phantom_ctx: std::marker::PhantomData<Ctx>,
 }
 
-impl<K, Ctx> CompiledExpr<K, Ctx> {
+impl<K, Ctx: CtxFamily> CompiledExpr<K, Ctx> {
     /// Returns a slice of variable keys in the order they must be supplied for evaluation.
     pub fn vars(&self) -> &[K] {
         &self.ordered_vars
@@ -729,20 +737,20 @@ impl<K> CompiledExpr<K, ()> {
     }
 }
 
-impl<K, Ctx> CompiledExpr<K, Ctx> {
+impl<K, Ctx: CtxFamily> CompiledExpr<K, Ctx> {
     /// Evaluates the compiled expression with the given values and a mutable context reference.
-    pub fn eval_with_ctx(&self, values: &[f64], ctx: &mut Ctx) -> Result<f64, JitError> {
+    pub fn eval_with_ctx<'a>(&self, values: &[f64], ctx: &mut Ctx::Ctx<'a>) -> Result<f64, JitError> {
         let needed = self.ordered_vars.len();
         self.check_gen(values, needed)?;
         let f = self.func_ptr;
-        let ctx_ptr = (ctx as *mut Ctx) as crate::rt_types::CtxPtr;
+        let ctx_ptr = (ctx as *mut Ctx::Ctx<'a>) as crate::rt_types::CtxPtr;
         let out = unsafe { f(values.as_ptr(), ctx_ptr) };
         Ok(out)
     }
 
     /// Evaluates a resolver-compiled expression without requiring a values slice.
     /// Only valid when compiled with VarAccessStrategy::ResolverCall.
-    pub fn eval_resolver_ctx(&self, ctx: &mut Ctx) -> Result<f64, JitError> {
+    pub fn eval_resolver_ctx<'a>(&self, ctx: &mut Ctx::Ctx<'a>) -> Result<f64, JitError> {
         // Check invalidation
         if self.gen_token.load(Ordering::Relaxed) != self.gen_at_compile {
             return Err(JitError::Invalidated);
@@ -751,13 +759,13 @@ impl<K, Ctx> CompiledExpr<K, Ctx> {
             return Err(JitError::Internal("eval_resolver_ctx called on non-resolver compiled expr".into()));
         }
         let f = self.func_ptr;
-        let ctx_ptr = (ctx as *mut Ctx) as crate::rt_types::CtxPtr;
+        let ctx_ptr = (ctx as *mut Ctx::Ctx<'a>) as crate::rt_types::CtxPtr;
         let out = unsafe { f(std::ptr::null(), ctx_ptr) };
         Ok(out)
     }
 }
 
-impl<K, Ctx> GenToken for CompiledExpr<K, Ctx> {
+impl<K, Ctx: CtxFamily> GenToken for CompiledExpr<K, Ctx> {
     fn gen_token(&self) -> usize {
         self.gen_token.load(Ordering::Relaxed)
     }
@@ -773,7 +781,7 @@ impl<K, Ctx> GenToken for CompiledExpr<K, Ctx> {
 /// This version is optimized for evaluation methods that use pointers (`eval` and `eval_ptrs`),
 /// which can be slightly more efficient if the underlying data is not contiguous.
 #[derive(Debug,Clone)]
-pub struct CompiledExprRef<K = String, Ctx = ()> {
+pub struct CompiledExprRef<K = String, Ctx: CtxFamily = ()> {
     pub(crate) func_ptr: JitFnRef,
     pub(crate) ordered_vars: Vec<K>,
     pub(crate) gen_token: Arc<AtomicUsize>,
@@ -783,7 +791,7 @@ pub struct CompiledExprRef<K = String, Ctx = ()> {
     pub(crate) _phantom_ctx: std::marker::PhantomData<Ctx>,
 }
 
-impl<K, Ctx> CompiledExprRef<K, Ctx> {
+impl<K, Ctx: CtxFamily> CompiledExprRef<K, Ctx> {
     /// Returns a slice of variable keys in the order they must be supplied for evaluation.
     pub fn vars(&self) -> &[K] {
         &self.ordered_vars
@@ -806,7 +814,7 @@ impl<K, Ctx> CompiledExprRef<K, Ctx> {
 
     /// Evaluates a resolver-compiled expression without requiring pointer arrays.
     /// Only valid when compiled with VarAccessStrategy::ResolverCall.
-    pub fn eval_resolver_ctx(&self, ctx: &mut Ctx) -> Result<f64, JitError> {
+    pub fn eval_resolver_ctx<'a>(&self, ctx: &mut Ctx::Ctx<'a>) -> Result<f64, JitError> {
         // Check invalidation
         if self.gen_token.load(Ordering::Relaxed) != self.gen_at_compile {
             return Err(JitError::Invalidated);
@@ -815,7 +823,7 @@ impl<K, Ctx> CompiledExprRef<K, Ctx> {
             return Err(JitError::Internal("eval_resolver_ctx called on non-resolver compiled expr".into()));
         }
         let f = self.func_ptr;
-        let ctx_ptr = (ctx as *mut Ctx) as crate::rt_types::CtxPtr;
+        let ctx_ptr = (ctx as *mut Ctx::Ctx<'a>) as crate::rt_types::CtxPtr;
         // For resolver path, first param is unused; pass null
         let out = unsafe { f(std::ptr::null(), ctx_ptr) };
         Ok(out)
@@ -848,13 +856,13 @@ impl<K> CompiledExprRef<K, ()> {
     }
 }
 
-impl<K, Ctx> CompiledExprRef<K, Ctx> {
+impl<K, Ctx:CtxFamily> CompiledExprRef<K, Ctx> {
     /// Evaluates with a mutable context reference, which is internally converted to a raw pointer.
-    pub fn eval_with_ctx(&self, values: &[&f64], ctx: &mut Ctx) -> Result<f64, JitError> {
+    pub fn eval_with_ctx<'a>(&self, values: &[&f64], ctx: &mut Ctx::Ctx<'a>) -> Result<f64, JitError> {
         let needed = self.ordered_vars.len();
         self.check_gen(values, needed)?;
         let f = self.func_ptr;
-        let ctx_ptr = (ctx as *mut Ctx) as crate::rt_types::CtxPtr;
+        let ctx_ptr = (ctx as *mut Ctx::Ctx<'a>) as crate::rt_types::CtxPtr;
         let out = unsafe { f(values.as_ptr() as *const *const f64, ctx_ptr) };
         Ok(out)
     }
@@ -863,17 +871,17 @@ impl<K, Ctx> CompiledExprRef<K, Ctx> {
     ///
     /// The `ptrs` slice must provide pointers in the exact order specified by `vars()`.
     /// The pointers must be valid and aligned for reads of `f64` for the duration of the call.
-    pub fn eval_ptrs_with_ctx(&self, ptrs: &[*const f64], ctx: &mut Ctx) -> Result<f64, JitError> {
+    pub fn eval_ptrs_with_ctx<'a>(&self, ptrs: &[*const f64], ctx: &mut Ctx::Ctx<'a>) -> Result<f64, JitError> {
         let needed = self.ordered_vars.len();
         self.check_gen(ptrs, needed)?;
         let f = self.func_ptr;
-        let ctx_ptr = (ctx as *mut Ctx) as crate::rt_types::CtxPtr;
+        let ctx_ptr = (ctx as *mut Ctx::Ctx<'a>) as crate::rt_types::CtxPtr;
         let out = unsafe { f(ptrs.as_ptr(), ctx_ptr) };
         Ok(out)
     }
 }
 
-impl<K, Ctx> GenToken for CompiledExprRef<K, Ctx> {
+impl<K, Ctx: CtxFamily> GenToken for CompiledExprRef<K, Ctx> {
     fn gen_token(&self) -> usize {
         self.gen_token.load(Ordering::Relaxed)
     }
@@ -913,7 +921,7 @@ trait CheckGen {
 
 
 
-impl<Ctx> Tabula<Ctx> {
+impl<Ctx: CtxFamily> Tabula<Ctx> {
     /// Creates a new `Tabula` engine with the default configuration for a specific context type.
     pub fn new_ctx() -> Self {
         Self {

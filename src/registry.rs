@@ -1,3 +1,5 @@
+use crate::engine::CtxFamily;
+
 // Re-exported metadata for functions collected via #[function]
 #[derive(Clone, Copy)]
 pub struct FnMeta {
@@ -19,7 +21,7 @@ pub trait HasCtx {
     type Ctx;
 }
 
-impl<Ctx> HasCtx for crate::engine::Tabula<Ctx> {
+impl<Ctx: CtxFamily> HasCtx for crate::engine::Tabula<Ctx> {
     type Ctx = Ctx;
 }
 

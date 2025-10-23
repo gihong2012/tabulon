@@ -1,4 +1,5 @@
 use tabulon::{Parser, PreparedExpr, Tabula, IdentityResolver, VarAccessStrategy, register_resolver_typed, resolver};
+use tabulon::engine::CtxFamily;
 
 #[repr(C)]
 struct MacroCtx {
@@ -12,6 +13,10 @@ impl MacroCtx {
         let n = values.len();
         Self { values, cached: vec![0.0; n], hit: vec![0; n] }
     }
+}
+
+impl CtxFamily for MacroCtx {
+    type Ctx<'a> = MacroCtx;
 }
 
 // Define a resolver without writing extern "C" using the #[resolver] macro.

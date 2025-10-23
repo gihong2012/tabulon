@@ -1,4 +1,5 @@
 use tabulon::{Parser, PreparedExpr, Tabula, IdentityResolver, VarAccessStrategy};
+use tabulon::engine::CtxFamily;
 
 #[repr(C)]
 struct EvalCtx {
@@ -7,6 +8,10 @@ struct EvalCtx {
     hit: Vec<u8>, // 0/1
     call_counts: Vec<u32>,
     miss_counts: Vec<u32>,
+}
+
+impl CtxFamily for EvalCtx {
+    type Ctx<'a> = EvalCtx;
 }
 
 impl EvalCtx {

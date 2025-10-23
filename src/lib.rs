@@ -3,7 +3,7 @@
 mod ast;
 mod codegen;
 mod collect;
-mod engine;
+pub mod engine;
 mod error;
 mod lexer;
 mod optimizer;

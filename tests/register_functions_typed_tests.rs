@@ -1,7 +1,12 @@
 use tabulon::{Tabula, function, register_functions_typed};
+use tabulon::engine::CtxFamily;
 
 #[derive(Debug)]
 struct Ctx { bias: f64 }
+
+impl CtxFamily for Ctx {
+    type Ctx<'a> = Ctx;
+}
 
 #[function]
 fn add_bias(a: f64, ctx: &Ctx) -> f64 { a + ctx.bias }

@@ -1,3 +1,4 @@
+use tabulon::engine::CtxFamily;
 use tabulon::Tabula;
 
 #[repr(C)]
@@ -15,6 +16,10 @@ extern "C" fn scale_add(ctx: *mut std::ffi::c_void, a: f64, b: f64) -> f64 {
     if ctx.is_null() { return f64::NAN; }
     let c = unsafe { &*(ctx as *const Ctx) };
     a * c.bias + b
+}
+
+impl CtxFamily for Ctx {
+    type Ctx<'a> = Ctx;
 }
 
 #[test]

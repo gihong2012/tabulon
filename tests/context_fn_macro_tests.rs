@@ -1,4 +1,5 @@
 use tabulon::{Tabula, function, register_functions};
+use tabulon::engine::CtxFamily;
 
 #[derive(Debug)]
 struct Ctx {
@@ -6,9 +7,17 @@ struct Ctx {
     count: usize,
 }
 
+impl CtxFamily for Ctx {
+    type Ctx<'a> = Ctx;
+}
+
 #[derive(Debug)]
 struct VecCtx {
     vec: Vec<i64>,
+}
+
+impl CtxFamily for VecCtx {
+    type Ctx<'a> = VecCtx;
 }
 
 #[function]

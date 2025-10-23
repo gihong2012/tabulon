@@ -1,3 +1,4 @@
+use tabulon::engine::CtxFamily;
 use tabulon::Tabula;
 
 #[repr(C)]
@@ -8,6 +9,10 @@ extern "C" fn add_bias(ctx: *mut std::ffi::c_void, x: f64) -> f64 {
     if ctx.is_null() { return f64::NAN; }
     let c = unsafe { &*(ctx as *const Ctx) };
     x + c.bias
+}
+
+impl CtxFamily for Ctx {
+    type Ctx<'a> = Ctx;
 }
 
 #[test]

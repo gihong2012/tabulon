@@ -1,4 +1,5 @@
 use tabulon::{Parser, PreparedExpr, Tabula, IdentityResolver, VarAccessStrategy};
+use tabulon::engine::CtxFamily;
 
 #[repr(C)]
 struct RefCtx {
@@ -6,6 +7,10 @@ struct RefCtx {
     cached: Vec<f64>,
     hit: Vec<u8>,
     call_counts: Vec<u32>,
+}
+
+impl CtxFamily for RefCtx {
+    type Ctx<'a> = RefCtx;
 }
 
 impl RefCtx {

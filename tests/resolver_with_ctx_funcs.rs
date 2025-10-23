@@ -1,4 +1,5 @@
 use tabulon::{Parser, PreparedExpr, Tabula, IdentityResolver, VarAccessStrategy};
+use tabulon::engine::CtxFamily;
 
 #[repr(C)]
 struct MixedCtx {
@@ -26,6 +27,10 @@ impl MixedCtx {
             factor,
         }
     }
+}
+
+impl CtxFamily for MixedCtx {
+    type Ctx<'a> = MixedCtx;
 }
 
 // Resolver that uses the same ctx as custom functions, defined via macro
