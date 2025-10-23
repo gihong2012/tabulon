@@ -687,7 +687,7 @@ pub struct CompiledExpr<K = String, Ctx = ()> {
     pub(crate) gen_at_compile: usize,
     pub(crate) uses_ctx: bool,
     pub(crate) resolver_mode: bool,
-    pub(crate) _phantom_ctx: std::marker::PhantomData<Ctx>,
+    pub(crate) _phantom_ctx: std::marker::PhantomData<fn(Ctx)>,
 }
 
 impl<K, Ctx> CompiledExpr<K, Ctx> {
@@ -780,7 +780,7 @@ pub struct CompiledExprRef<K = String, Ctx = ()> {
     pub(crate) gen_at_compile: usize,
     pub(crate) uses_ctx: bool,
     pub(crate) resolver_mode: bool,
-    pub(crate) _phantom_ctx: std::marker::PhantomData<Ctx>,
+    pub(crate) _phantom_ctx: std::marker::PhantomData<fn(Ctx)>,
 }
 
 impl<K, Ctx> CompiledExprRef<K, Ctx> {
